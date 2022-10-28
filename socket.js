@@ -1,8 +1,9 @@
-import { Server, Socket } from "socket.io";
+const { Server, Socket } = require("socket.io");
+const wrtc = require("@koush/wrtc");
 
-export const SocketMap = {};
+const SocketMap = {};
 
-export const socketInit = (server, app) => {
+const socketInit = (server, app) => {
   const io = new Server(server, {
     cors: {
       origin: "*",
@@ -26,10 +27,13 @@ export const socketInit = (server, app) => {
 
     //  여기부터 rtc
 
-    socket.on("joinRoom", ({ id, chatRoomId }) => {
+    socket.on("joinRoom", ({ chatRoomId }) => {
+      // socket.on("joinRoom", ({ id, chatRoomId }) => {
       try {
-        let allUsers = getOtherUsersInRoom(id, chatRoomId);
-        io.to(id).emit("allUsers", { users: allUsers });
+        let allUsers = getOtherUsersInRoom(socket.id, chatRoomId);
+        // let allUsers = getOtherUsersInRoom(id, chatRoomId);
+        io.to(socket.id).emit("allUsers", { users: allUsers });
+        // io.to(id).emit("allUsers", { users: allUsers });
       } catch (error) {
         console.log(error);
       }
@@ -37,12 +41,16 @@ export const socketInit = (server, app) => {
 
     socket.on("senderOffer", async (data) => {
       try {
-        socketToRoom[data.senderSocketID] = data.roomId;
+        // console.log(data);
+        socketToRoom[socket.id] = data.roomId;
+        // socketToRoom[data.senderSocketID] = data.roomId;
         let pc = createReceiverPeerConnection(
-          data.senderSocketID,
+          socket.id,
+          // data.senderSocketID,
           app.get("io"),
           data.roomId
         );
+        console.log(data.sdp);
         await pc.setRemoteDescription(data.sdp);
         let answerSdp = await pc.createAnswer({
           offerToReceiveAudio: true,
@@ -50,7 +58,8 @@ export const socketInit = (server, app) => {
         });
         await pc.setLocalDescription(answerSdp);
         socket.join(data.roomId);
-        io.to(data.senderSocketID).emit("getSenderAnswer", { sdp: answerSdp });
+        io.to(socket.id).emit("getSenderAnswer", { sdp: answerSdp });
+        // io.to(data.senderSocketID).emit("getSenderAnswer", { sdp: answerSdp });
       } catch (error) {
         console.log(error);
       }
@@ -58,8 +67,13 @@ export const socketInit = (server, app) => {
 
     socket.on("senderCandidate", async (data) => {
       try {
-        let pc = receiverPCs[data.senderSocketID];
-        await pc.addIceCandidate(new wrtc.RTCIceCandidate(data.candidate));
+        // console.log(socket.id);
+        let pc = receiverPCs[socket.id];
+        // let pc = receiverPCs[data.senderSocketID];
+
+        if (data.candidate)
+          await pc.addIceCandidate(new wrtc.RTCIceCandidate(data.candidate));
+        console.log("!!여기다!");
       } catch (error) {
         console.log(error);
       }
@@ -68,7 +82,8 @@ export const socketInit = (server, app) => {
     socket.on("receiverOffer", async (data) => {
       try {
         let pc = createSenderPeerConnection(
-          data.receiverSocketID,
+          socket.id,
+          // data.receiverSocketID,
           data.senderSocketID,
           app.get("io"),
           data.roomID
@@ -114,6 +129,7 @@ export const socketInit = (server, app) => {
     });
     socket.on("disconnect", () => {
       try {
+        console.log("disconnect : ", socket.id);
         let roomId = socketToRoom[socket.id];
 
         deleteUser(socket.id, roomId);
@@ -170,6 +186,7 @@ const createReceiverPeerConnection = (socketId, socket, roomId) => {
         },
       ];
     }
+    console.log(roomId);
     socket.to(roomId).emit("userEnter", { id: socketId });
   };
 
@@ -213,7 +230,6 @@ const createSenderPeerConnection = (
 const getOtherUsersInRoom = (socketId, roomId) => {
   let allUsers = [];
   if (!users[roomId]) return allUsers;
-  console.log(users[roomId]);
   allUsers = users[roomId]
     .filter((user) => user.id !== socketId)
     .map((otherUser) => ({
@@ -257,3 +273,6 @@ const closeSenderPCs = (socketId) => {
 
   delete senderPCs[socketId];
 };
+
+exports.SocketMap = SocketMap;
+exports.socketInit = socketInit;
