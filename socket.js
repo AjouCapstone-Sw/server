@@ -1,7 +1,16 @@
-const { Server, Socket } = require("socket.io");
+const { Server } = require("socket.io");
 const wrtc = require("@koush/wrtc");
+const { makePC } = require("./MyWebRTC");
 
 const SocketMap = {};
+// 상품 Seller의 PC
+const ProductPC = {};
+// 상품 Seller PC의 Stream 데이터
+const ProductStream = {};
+// 상품에 참여하는 사람들 정보
+const ProductJoinUsers = {};
+// 상품에 참여하는 모든 유저들의 pc 정보
+const ProductUsersPC = {};
 
 const socketInit = (server, app) => {
   const io = new Server(server, {
@@ -27,251 +36,127 @@ const socketInit = (server, app) => {
 
     //  여기부터 rtc
 
-    socket.on("joinRoom", ({ chatRoomId }) => {
-      // socket.on("joinRoom", ({ id, chatRoomId }) => {
-      try {
-        let allUsers = getOtherUsersInRoom(socket.id, chatRoomId);
-        // let allUsers = getOtherUsersInRoom(id, chatRoomId);
-        io.to(socket.id).emit("allUsers", { users: allUsers });
-        // io.to(id).emit("allUsers", { users: allUsers });
-      } catch (error) {
-        console.log(error);
-      }
+    socket.on("openAuction", ({ productId }) => {
+      if (ProductPC[productId]) return;
+      const onIceCandidateCallback = ({ candidate }) =>
+        socket.to(socket.id).emit("getSenderCandidate", { candidate });
+
+      const onTrackCallback = (e) =>
+        (ProductStream[productId] = { id: socket.id, stream: e.streams[0] });
+
+      const pc = makePC(onIceCandidateCallback, onTrackCallback);
+      ProductPC[productId] = pc;
+      ProductUsersPC[socket.id] = pc;
+
+      // 이게 필요할까? 채팅할때? senderOffer때 필요할까? joinAuction이 있는데.?
+      // socket.join(productId);
+
+      // product auction open db에 변경
     });
 
-    socket.on("senderOffer", async (data) => {
-      try {
-        // console.log(data);
-        socketToRoom[socket.id] = data.roomId;
-        // socketToRoom[data.senderSocketID] = data.roomId;
-        let pc = createReceiverPeerConnection(
-          socket.id,
-          // data.senderSocketID,
-          app.get("io"),
-          data.roomId
-        );
-        console.log(data.sdp);
-        await pc.setRemoteDescription(data.sdp);
-        let answerSdp = await pc.createAnswer({
-          offerToReceiveAudio: true,
-          offerToReceiveVIdeo: true,
-        });
-        await pc.setLocalDescription(answerSdp);
-        socket.join(data.roomId);
-        io.to(socket.id).emit("getSenderAnswer", { sdp: answerSdp });
-        // io.to(data.senderSocketID).emit("getSenderAnswer", { sdp: answerSdp });
-      } catch (error) {
-        console.log(error);
-      }
+    socket.on("senderOffer", async ({ sdp }) => {
+      // socketToRoom[socket.id] = data.productId;
+      const pc = ProductUsersPC[socket.id];
+      await pc.setRemoteDescription(sdp);
+
+      const answerSdp = await pc.createAnswer({
+        offerToReceiveAudio: true,
+        offerToReceiveVIdeo: true,
+      });
+
+      await pc.setLocalDescription(answerSdp);
+
+      io.to(socket.id).emit("getSenderAnswer", { sdp: answerSdp });
     });
 
-    socket.on("senderCandidate", async (data) => {
-      try {
-        // console.log(socket.id);
-        let pc = receiverPCs[socket.id];
-        // let pc = receiverPCs[data.senderSocketID];
-
-        if (data.candidate)
-          await pc.addIceCandidate(new wrtc.RTCIceCandidate(data.candidate));
-        console.log("!!여기다!");
-      } catch (error) {
-        console.log(error);
-      }
+    socket.on("senderCandidate", ({ candidate }) => {
+      const pc = ProductUsersPC[socket.id];
+      if (!candidate) return;
+      pc.addIceCandidate(new wrtc.RTCIceCandidate(candidate));
     });
 
-    socket.on("receiverOffer", async (data) => {
-      try {
-        let pc = createSenderPeerConnection(
-          socket.id,
-          // data.receiverSocketID,
-          data.senderSocketID,
-          app.get("io"),
-          data.roomID
-        );
-        await pc.setRemoteDescription(data.sdp);
-        let sdp = await pc.createAnswer({
-          offerToReceiveAudio: false,
-          offerToReceiveVIdeo: false,
-        });
-        await pc.setLocalDescription(sdp);
-        app.get("io").to(data.receiverSocketID).emit("getReceiverAnswer", {
-          id: data.senderSocketID,
-          sdp,
-        });
-      } catch (error) {
-        console.log(error);
-      }
+    socket.on("joinAuction", ({ productId }) => {
+      const onIceCandidateCallback = ({ candidate }) => {
+        console.log("receiverCandidate가 발생해야 이게 실행됌");
+        socket.to(socket.id).emit("getReceiverCandidate", { candidate });
+      };
+
+      const onTrackCallback = (e) => console.log(e);
+
+      const pc = makePC(onIceCandidateCallback, onTrackCallback);
+
+      const stream = ProductStream[productId].stream;
+      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+
+      ProductUsersPC[socket.id] = pc;
+      (ProductJoinUsers[productId] ??= []).push(socket.id);
     });
 
-    socket.on("receiverCandidate", async (data) => {
-      try {
-        const senderPC = senderPCs[data.senderSocketID].filter(
-          (sPC) => sPC.id === data.receiverSocketID
-        )[0];
-        await senderPC.pc.addIceCandidate(
-          new wrtc.RTCIceCandidate(data.candidate)
-        );
-      } catch (error) {
-        console.log(error);
-      }
+    socket.on("receiverCandidate", ({ candidate, productId }) => {
+      console.log(
+        "프론트에서 onicecandidate발생하면 이벤트 호출되는데 호출을 안해서 동작안함"
+      );
+      console.log("이게 동작해야 joinAuction에서 등록한 callback함수가 실행됌");
+      const pc = ProductPC[productId];
+      pc.addIceCandidate(new wrtc.RTCIceCandidate(candidate));
     });
-    socket.on("leaveRoom", () => {
-      try {
-        let roomId = socketToRoom[socket.id];
 
-        deleteUser(socket.id, roomId);
-        closeReceiverPC(socket.id);
-        closeSenderPCs(socket.id);
-        app.get("io").to(roomId).emit("userExit", socket.id);
-      } catch (error) {
-        console.log(error);
-      }
-    });
-    socket.on("disconnect", () => {
-      try {
-        console.log("disconnect : ", socket.id);
-        let roomId = socketToRoom[socket.id];
+    socket.on("receiverOffer", async ({ sdp }) => {
+      // socketToRoom[socket.id] = data.productId;
+      const pc = ProductUsersPC[socket.id];
+      await pc.setRemoteDescription(sdp);
 
-        deleteUser(socket.id, roomId);
-        closeReceiverPC(socket.id);
-        closeSenderPCs(socket.id);
-        app.get("io").to(roomId).emit("userExit", socket.id);
-      } catch (error) {
-        console.log(error);
-      }
+      const answerSdp = await pc.createAnswer({
+        offerToReceiveAudio: true,
+        offerToReceiveVIdeo: true,
+      });
+      await pc.setLocalDescription(answerSdp);
+
+      io.to(socket.id).emit("getReceiverAnswer", { sdp: answerSdp });
     });
+    /**
+ * 
+ * 
+ * 
+ * 
+ * 
+ * 
+ * 
+ * 
+ * 
+ * 
+ * 
+ * 
+
+
+ */
+
+    //   socket.on("leaveRoom", () => {
+    //     try {
+    //       let roomId = socketToRoom[socket.id];
+
+    //       deleteUser(socket.id, roomId);
+    //       closeReceiverPC(socket.id);
+    //       closeSenderPCs(socket.id);
+    //       app.get("io").to(roomId).emit("userExit", socket.id);
+    //     } catch (error) {
+    //       console.log(error);
+    //     }
+    //   });
+    //   socket.on("disconnect", () => {
+    //     try {
+    //       console.log("disconnect : ", socket.id);
+    //       let roomId = socketToRoom[socket.id];
+
+    //       deleteUser(socket.id, roomId);
+    //       closeReceiverPC(socket.id);
+    //       closeSenderPCs(socket.id);
+    //       app.get("io").to(roomId).emit("userExit", socket.id);
+    //     } catch (error) {
+    //       console.log(error);
+    //     }
+    //   });
   });
-};
-
-let receiverPCs = {};
-let senderPCs = {};
-let users = {};
-let socketToRoom = {};
-
-const pc_config = {
-  iceServers: [
-    {
-      urls: "stun:stun.l.google.com:19302",
-    },
-  ],
-};
-
-const isIncluded = (array, Id) => array.some((item) => item.id === Id);
-
-const createReceiverPeerConnection = (socketId, socket, roomId) => {
-  const pc = new wrtc.RTCPeerConnection(pc_config);
-
-  if (receiverPCs[socketId]) receiverPCs[socketId] = pc;
-  else receiverPCs = { ...receiverPCs, [socketId]: pc };
-
-  pc.onicecandidate = (e) => {
-    socket.to(socketId).emit("getSenderCandidate", {
-      candidate: e.candidate,
-    });
-  };
-
-  pc.ontrack = (e) => {
-    if (users[roomId]) {
-      if (!isIncluded(users[roomId], socketId)) {
-        users[roomId].push({
-          id: socketId,
-          stream: e.streams[0],
-        });
-      } else return;
-    } else {
-      users[roomId] = [
-        {
-          id: socketId,
-          stream: e.streams[0],
-        },
-      ];
-    }
-    console.log(roomId);
-    socket.to(roomId).emit("userEnter", { id: socketId });
-  };
-
-  return pc;
-};
-
-const createSenderPeerConnection = (
-  receiversocketId,
-  sendersocketId,
-  socket,
-  roomId
-) => {
-  const pc = new wrtc.RTCPeerConnection(pc_config);
-
-  if (senderPCs[sendersocketId]) {
-    senderPCs[sendersocketId].filter((user) => user.id !== receiversocketId);
-    senderPCs[sendersocketId].push({ id: receiversocketId, pc });
-  } else
-    senderPCs = {
-      ...senderPCs,
-      [sendersocketId]: [{ id: receiversocketId, pc }],
-    };
-
-  pc.onicecandidate = (e) => {
-    socket.to(receiversocketId).emit("getReceiverCandidate", {
-      id: sendersocketId,
-      candidate: e.candidate,
-    });
-  };
-
-  const sendUser = users[roomId].filter(
-    (user) => user.id === sendersocketId
-  )[0];
-  sendUser.stream.getTracks().forEach((track) => {
-    pc.addTrack(track, sendUser.stream);
-  });
-
-  return pc;
-};
-
-const getOtherUsersInRoom = (socketId, roomId) => {
-  let allUsers = [];
-  if (!users[roomId]) return allUsers;
-  allUsers = users[roomId]
-    .filter((user) => user.id !== socketId)
-    .map((otherUser) => ({
-      id: otherUser.id,
-    }));
-
-  return allUsers;
-};
-
-const deleteUser = (socketId, roomId) => {
-  if (!users[roomId]) return;
-  users[roomId] = users[roomId].filter((user) => user.id !== socketId);
-  if (users[roomId].length === 0) {
-    delete users[roomId];
-  }
-  if (!socketToRoom[socketId]) return;
-  delete socketToRoom[socketId];
-};
-
-const closeReceiverPC = (socketId) => {
-  if (!receiverPCs[socketId]) return;
-
-  receiverPCs[socketId].close();
-  delete receiverPCs[socketId];
-};
-
-const closeSenderPCs = (socketId) => {
-  if (!senderPCs[socketId]) return;
-
-  senderPCs[socketId].forEach((senderPC) => {
-    senderPC.pc.close();
-    const eachSenderPC = senderPCs[senderPC.id].filter(
-      (sPC) => sPC.id === socketId
-    )[0];
-    if (!eachSenderPC) return;
-    eachSenderPC.pc.close();
-    senderPCs[senderPC.id] = senderPCs[senderPC.id].filter(
-      (sPC) => sPC.id !== socketId
-    );
-  });
-
-  delete senderPCs[socketId];
 };
 
 exports.SocketMap = SocketMap;
