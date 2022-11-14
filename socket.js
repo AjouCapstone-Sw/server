@@ -86,6 +86,9 @@ const socketInit = (server, app) => {
       const pc = makePC(onIceCandidateCallback, onTrackCallback);
 
       const stream = ProductStream[productId].stream;
+      // console.log(stream);
+      // console.log(stream.getTracks());
+      // stream.getTracks().forEach((track) => console.log(track));
       stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
       ProductUsersPC[socket.id] = pc;
