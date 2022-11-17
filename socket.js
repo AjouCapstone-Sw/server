@@ -4,6 +4,8 @@ const { makePC } = require('./MyWebRTC');
 const { Auction, AuctionHouse, Manage } = require('./auction/auction');
 const { getProductByauction } = require('./auction/util');
 
+const OP_TIME = 2000;
+
 const SocketMap = {};
 // 상품 Seller의 PC
 const ProductPC = {};
@@ -80,10 +82,7 @@ const socketInit = (server, app) => {
             socket.leave(productId);
             delete AuctionList[productId];
             return;
-          } else if (
-            auctionHouse.manage.isConclusionNow() &&
-            auctionHouse.auction.compare(auctionHouse.manage.queue[0].price)
-          ) {
+          } else if (auctionHouse.manage.isConclusionNow() && auctionHouse.compare()) {
             auctionHouse.conclusion(auctionHouse.manage.queue[0]);
             auctionHouse.auction.add();
             auctionHouse.manage.getRemainTime();
@@ -97,7 +96,7 @@ const socketInit = (server, app) => {
 
           auctionHouse.manage.initQueue();
         },
-        2000,
+        OP_TIME,
         productId
       );
 

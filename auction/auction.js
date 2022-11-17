@@ -22,6 +22,10 @@ class AuctionHouse {
   conclusion(user) {
     this.conclusionUser = user;
   }
+
+  compare() {
+    return this.manage.queue[0].price === this.auction.price;
+  }
 }
 
 class Manage {
@@ -65,10 +69,6 @@ class Auction {
 
   add() {
     this.price += this.perPrice;
-  }
-
-  compare(currentPrice) {
-    return currentPrice === this.price;
   }
 }
 
