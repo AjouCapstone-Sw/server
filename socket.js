@@ -5,7 +5,7 @@ const { Auction, AuctionHouse, Manage } = require("./auction/auction");
 const { getProductByauction } = require("./auction/util");
 
 const OP_TIME = 5000;
-const DESCRIPTION_TIME = 1000;
+const DESCRIPTION_TIME = 60000;
 const AVOID_ASK_TIME = DESCRIPTION_TIME + 6000;
 
 const SocketMap = {};
@@ -79,6 +79,14 @@ const socketInit = (server, app) => {
         manage,
       });
 
+      io.to(productId).emit("updateAuctionStatus", {
+        status: AuctionList[productId].conclusionUser?.buyer ?? "",
+        remainTime: AuctionList[productId].manage.getRemainTime(),
+        price: AuctionList[productId].conclusionUser?.price ?? 0,
+        nextPrice: AuctionList[productId].auction.price,
+        joinedUserLength: AuctionList[productId].users.length,
+      });
+
       const auctionTimer = setInterval(
         () => io.to(productId).emit("auctionTimer", manage.getRemainTime()),
         1000
@@ -106,7 +114,7 @@ const socketInit = (server, app) => {
             const seller = auctionHouse.getSeller();
             io.to(seller).emit("endAuctionWithSeller", seller);
 
-            const determinedBuyer = auctionHouse.conclusionUser.buyer;
+            const determinedBuyer = auctionHouse.conclusionUser?.buyer ?? "";
             io.to(determinedBuyer).emit("endAuctionWithBuyer", determinedBuyer);
 
             const isNotDetermined = (id) =>
@@ -167,6 +175,7 @@ const socketInit = (server, app) => {
             remainTime: auctionHouse.manage.getRemainTime(),
             price: auctionHouse.conclusionUser.price,
             nextPrice: auction.price,
+            joinedUserLength: auctionHouse.users.length,
           });
 
           auctionHouse.manage.initQueue();

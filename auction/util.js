@@ -19,9 +19,9 @@ const getProductByauction = async (productId) => {
     },
   } = await axiosInstance.get(`/product/${productId}`);
   return {
-    price: startPrice,
+    price: Number(startPrice),
     operateTime: Number(duration) * 60 * 1000,
-    perPrice: bidPrice,
+    perPrice: Number(bidPrice),
   };
 };
 
