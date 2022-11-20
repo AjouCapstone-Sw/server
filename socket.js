@@ -316,7 +316,9 @@ const socketInit = (server, app) => {
     });
 
     socket.on("sendMessage", ({ productId, message, userId }) =>
-      io.to(productId).emit("receiveMessage", { userId, message })
+      io
+        .to(productId)
+        .emit("receiveMessage", { userId: userId + " : ", message })
     );
 
     socket.on("senderOffer", async ({ sdp }) => {
@@ -357,7 +359,10 @@ const socketInit = (server, app) => {
 
       tracks.forEach((track) => pc.addTrack(track, stream));
 
-      io.to(socket.id).emit("callSeller", AuctionList[productId].seller);
+      io.to(socket.id).emit(
+        "callSeller",
+        findUserId(productId, AuctionList[productId].seller)
+      );
 
       ProductUsersPC[socket.id] = pc;
       (ProductJoinUsers[productId] ??= []).push({
