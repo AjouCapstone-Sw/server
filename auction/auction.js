@@ -71,12 +71,12 @@ class Manage {
 
 class Auction {
   constructor({ price, perPrice }) {
-    this.price = price;
-    this.perPrice = perPrice;
+    this.price = Number(price);
+    this.perPrice = Number(perPrice);
   }
 
   add() {
-    this.price += this.perPrice;
+    this.price += Number(this.perPrice);
   }
 }
 

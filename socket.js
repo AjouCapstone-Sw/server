@@ -79,11 +79,12 @@ const socketInit = (server, app) => {
         auction,
         manage,
       });
+      socket.join(productId);
 
       io.to(productId).emit("updateAuctionStatus", {
         status: "",
-        price: AuctionList[productId].conclusionUser?.price ?? 0,
-        nextPrice: AuctionList[productId].auction.price,
+        price: 0,
+        nextPrice: perPrice,
       });
 
       const auctionTimer = setInterval(
