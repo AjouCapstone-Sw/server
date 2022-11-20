@@ -76,7 +76,7 @@ class Auction {
   }
 
   add() {
-    this.price += Number(this.perPrice);
+    this.price += this.perPrice;
   }
 }
 

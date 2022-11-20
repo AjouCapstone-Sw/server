@@ -83,8 +83,7 @@ const socketInit = (server, app) => {
 
       io.to(productId).emit("updateAuctionStatus", {
         status: "",
-        price: 0,
-        nextPrice: perPrice,
+        nextPrice: auction.price,
       });
 
       const auctionTimer = setInterval(
@@ -175,7 +174,6 @@ const socketInit = (server, app) => {
               productId,
               auctionHouse.conclusionUser?.buyer ?? ""
             ),
-            price: auctionHouse.conclusionUser.price,
             nextPrice: auction.price,
           });
 
@@ -210,6 +208,7 @@ const socketInit = (server, app) => {
     });
 
     socket.on("sendAskPrice", ({ productId }) => {
+      if (AuctionList[productId] === undefined) return;
       const { manage, auction } = AuctionList[productId];
       manage.tryConclusion({ buyer: socket.id, price: auction.price });
     });
@@ -266,6 +265,13 @@ const socketInit = (server, app) => {
       if (AuctionList[productId] === undefined) return;
       AuctionList[productId].join(socket.id);
 
+      io.to(socket.id).emit("updateAuctionStatus", {
+        status: findUserId(
+          productId,
+          AuctionList[productId].conclusionUser?.buyer ?? ""
+        ),
+        nextPrice: AuctionList[productId].auction.price,
+      });
       socket.join(productId);
       io.to(productId).emit("joinUser", {
         userId,
