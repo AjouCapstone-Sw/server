@@ -95,8 +95,10 @@ const socketInit = (server, app) => {
       const auction = new Auction({ price, perPrice });
       const manage = new Manage({ operateTime });
 
+      io.to(socket.id).emit("callSeller", userId);
+
       AuctionList[productId] = new AuctionHouse({
-        seller: socket.id,
+        seller: userId,
         auction,
         manage,
       });
@@ -346,6 +348,8 @@ const socketInit = (server, app) => {
       const tracks = ProductStream[productId].tracks;
 
       tracks.forEach((track) => pc.addTrack(track, stream));
+
+      io.to(socket.id).emit("callSeller", AuctionList[productId].seller);
 
       ProductUsersPC[socket.id] = pc;
 
