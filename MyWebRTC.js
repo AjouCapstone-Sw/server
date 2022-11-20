@@ -11,7 +11,9 @@ const pc_config = {
 const makePC = (onIceCandidateCallback, onTrackCallback) => {
   const pc = new wrtc.RTCPeerConnection(pc_config);
 
-  pc.onicecandidate = (e) => onIceCandidateCallback(e);
+  pc.onicecandidate = (e) => {
+    onIceCandidateCallback(e);
+  };
   pc.ontrack = (e) => onTrackCallback(e);
 
   return pc;
