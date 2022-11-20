@@ -22,6 +22,19 @@ const ProductJoinUsers = {};
 // 상품에 참여하는 모든 유저들의 pc 정보
 const ProductUsersPC = {};
 
+const closeAuction = (productId) => {
+  ProductPC[productId] = null;
+  ProductJoinUsers[productId].forEach(
+    ({ socketId }) => (ProductUsersPC[socketId] = null)
+  );
+  ProductJoinUsers[productId] = null;
+  ProductStream[socket.id] = null;
+  ProductUsersPC[socket.id] = null;
+  const auctionHouse = AuctionList[productId];
+  clearInterval(auctionHouse.op);
+  clearInterval(auctionHouse.timer);
+  AuctionList[productId] = null;
+};
 const findUserId = (productId, sockId) =>
   ProductJoinUsers[productId].filter(({ socketId }) => sockId === socketId)[0]
     ?.userId ?? "";
@@ -52,17 +65,18 @@ const socketInit = (server, app) => {
 
     //  여기부터 rtc
     socket.on("close", ({ productId }) => {
-      ProductPC[productId] = null;
-      ProductJoinUsers[productId].forEach(
-        ({ socketId }) => (ProductUsersPC[socketId] = null)
-      );
-      ProductJoinUsers[productId] = null;
-      ProductStream[socket.id] = null;
-      ProductUsersPC[socket.id] = null;
-      const auctionHouse = AuctionList[productId];
-      clearInterval(auctionHouse.op);
-      clearInterval(auctionHouse.timer);
-      AuctionList[productId] = null;
+      closeAuction(productId);
+      // ProductPC[productId] = null;
+      // ProductJoinUsers[productId].forEach(
+      //   ({ socketId }) => (ProductUsersPC[socketId] = null)
+      // );
+      // ProductJoinUsers[productId] = null;
+      // ProductStream[socket.id] = null;
+      // ProductUsersPC[socket.id] = null;
+      // const auctionHouse = AuctionList[productId];
+      // clearInterval(auctionHouse.op);
+      // clearInterval(auctionHouse.timer);
+      // AuctionList[productId] = null;
     });
     socket.on("openAuction", async ({ productId, userId }) => {
       if (ProductPC[productId]) return;
@@ -98,7 +112,7 @@ const socketInit = (server, app) => {
       io.to(socket.id).emit("callSeller", userId);
 
       AuctionList[productId] = new AuctionHouse({
-        seller: userId,
+        seller: socket.id,
         auction,
         manage,
       });
@@ -168,9 +182,7 @@ const socketInit = (server, app) => {
         (productId) => {
           const auctionHouse = AuctionList[productId];
           count++;
-          if (count < DESCRIPTION_TIME / OP_TIME) {
-            return;
-          }
+          if (count < DESCRIPTION_TIME / OP_TIME) return;
 
           if (!isAuctionStart) {
             io.to(productId).emit("startAuction", "start");
@@ -211,9 +223,7 @@ const socketInit = (server, app) => {
                 ),
               })
             );
-
-            // socket.leave(productId);
-            // delete AuctionList[productId];
+            closeAuction(productId);
             return;
             //호가 들어왔을 때
           } else if (
@@ -260,9 +270,7 @@ const socketInit = (server, app) => {
                 ),
               })
             );
-
-            // socket.leave(productId);
-            // delete AuctionList[productId];
+            closeAuction(productId);
             return;
           }
 
@@ -352,7 +360,6 @@ const socketInit = (server, app) => {
       io.to(socket.id).emit("callSeller", AuctionList[productId].seller);
 
       ProductUsersPC[socket.id] = pc;
-
       (ProductJoinUsers[productId] ??= []).push({
         socketId: socket.id,
         userId,
