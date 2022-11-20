@@ -11,6 +11,10 @@ class AuctionHouse {
     return this.seller;
   }
 
+  setConclusionPrice(price) {
+    this.conclusionPrice = price;
+  }
+
   join(user) {
     this.users.push(user);
   }
@@ -49,6 +53,7 @@ class Manage {
 
   getRemainTime() {
     const time = new Date().getTime();
+
     return this.operateTime - (time - this.startTime);
   }
 
