@@ -5,7 +5,7 @@ const { Auction, AuctionHouse, Manage } = require("./auction/auction");
 const { getProductByauction } = require("./auction/util");
 
 const OP_TIME = 5000;
-const DESCRIPTION_TIME = 60000;
+const DESCRIPTION_TIME = 10000;
 const AVOID_ASK_TIME = DESCRIPTION_TIME + 6000;
 
 const SocketMap = {};
@@ -123,23 +123,35 @@ const socketInit = (server, app) => {
             clearInterval(auctionTimer);
 
             const seller = auctionHouse.getSeller();
-            io.to(seller).emit("endAuctionWithSeller", seller);
+            io.to(seller).emit("endAuctionWithSeller", {
+              price: auctionHouse.conclusionUser?.price,
+            });
 
-            const determinedBuyer = auctionHouse.conclusionUser?.buyer ?? "";
-            io.to(determinedBuyer).emit("endAuctionWithBuyer", determinedBuyer);
-
+            const determinedBuyer = auctionHouse.conclusionUser?.buyer;
+            const determinedPrice = auctionHouse.conclusionUser?.price;
+            io.to(determinedBuyer).emit("endAuctionWithBuyer", {
+              productId,
+              price: determinedPrice,
+              seller: findUserId(productId, AuctionList[productId].getSeller()),
+            });
             const isNotDetermined = (id) =>
               ![this.seller, determinedBuyer].includes(id);
-
+            e;
             const socketList = auctionHouse.users;
             const remainMembers =
               Array.from(socketList).filter(isNotDetermined);
             remainMembers.map((member) =>
-              io.to(member).emit("endAuctionWithRemainder", member)
+              io.to(member).emit("endAuctionWithRemainder", {
+                productId,
+                seller: findUserId(
+                  productId,
+                  AuctionList[productId].getSeller()
+                ),
+              })
             );
 
-            socket.leave(productId);
-            delete AuctionList[productId];
+            // socket.leave(productId);
+            // delete AuctionList[productId];
             return;
             //호가 들어왔을 때
           } else if (
@@ -159,10 +171,16 @@ const socketInit = (server, app) => {
             clearInterval(auctionTimer);
 
             const seller = auctionHouse.getSeller();
-            io.to(seller).emit("endAuctionWithSeller", seller);
+            io.to(seller).emit("endAuctionWithSeller", productId);
 
-            const determinedBuyer = auctionHouse.conclusionUser?.buyer ?? "";
-            io.to(determinedBuyer).emit("endAuctionWithBuyer", determinedBuyer);
+            const determinedBuyer = auctionHouse.conclusionUser.buyer;
+            const determinedPrice = auctionHouse.conclusionUser?.price;
+
+            io.to(determinedBuyer).emit("endAuctionWithBuyer", {
+              productId,
+              price: determinedPrice,
+              seller: findUserId(productId, AuctionList[productId].getSeller()),
+            });
 
             const isNotDetermined = (id) =>
               ![this.seller, determinedBuyer].includes(id);
@@ -171,17 +189,22 @@ const socketInit = (server, app) => {
             const remainMembers =
               Array.from(socketList).filter(isNotDetermined);
             remainMembers.map((member) =>
-              io.to(member).emit("endAuctionWithRemainder", member)
+              io.to(member).emit("endAuctionWithRemainder", {
+                productId,
+                seller: findUserId(
+                  productId,
+                  AuctionList[productId].getSeller()
+                ),
+              })
             );
 
-            socket.leave(productId);
-            delete AuctionList[productId];
+            // socket.leave(productId);
+            // delete AuctionList[productId];
             return;
           }
           // 호가 시작 후 10초전까지는 모아둠
           if (count < AVOID_ASK_TIME / OP_TIME) return;
 
-          console.log(ProductJoinUsers[productId]);
           io.to(productId).emit("updateAuctionStatus", {
             status: findUserId(
               productId,
@@ -279,12 +302,12 @@ const socketInit = (server, app) => {
       AuctionList[productId].join(socket.id);
 
       console.log(ProductJoinUsers[productId]);
-      io.to(socket.id).emit("updateAuctionStatus", {
+      io.to(productId).emit("updateAuctionStatus", {
         status: findUserId(
           productId,
           AuctionList[productId].conclusionUser?.buyer ?? ""
         ),
-        nextPrice: AuctionList[productId].auction.price,
+        nextPrice: auction.price,
       });
       socket.join(productId);
       io.to(productId).emit("joinUser", {
