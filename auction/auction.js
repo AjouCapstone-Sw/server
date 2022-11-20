@@ -4,6 +4,7 @@ class AuctionHouse {
     this.seller = seller;
     this.auction = auction;
     this.op = null;
+    this.timer = null;
     this.conclusionUser = null;
     this.manage = manage;
   }
@@ -19,8 +20,9 @@ class AuctionHouse {
     this.users.push(user);
   }
 
-  runAuction(op) {
+  runAuction(op, timer) {
     this.op = op;
+    this.timer = timer;
   }
 
   conclusion(user) {
