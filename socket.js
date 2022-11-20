@@ -49,6 +49,9 @@ const socketInit = (server, app) => {
     //  여기부터 rtc
     socket.on("close", ({ productId }) => {
       ProductPC[productId] = null;
+      ProductJoinUsers[productId].forEach(
+        ({ socketId }) => (ProductUsersPC[socketId] = null)
+      );
       ProductJoinUsers[productId] = null;
       ProductStream[socket.id] = null;
       ProductUsersPC[socket.id] = null;
