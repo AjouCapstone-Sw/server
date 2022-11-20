@@ -47,7 +47,16 @@ const socketInit = (server, app) => {
     });
 
     //  여기부터 rtc
-
+    socket.on("close", ({ productId }) => {
+      ProductPC[productId] = null;
+      ProductJoinUsers[productId] = null;
+      ProductStream[socket.id] = null;
+      ProductUsersPC[socket.id] = null;
+      const auctionHouse = AuctionList[productId];
+      clearInterval(auctionHouse.op);
+      clearInterval(auctionHouse.timer);
+      AuctionList[productId] = null;
+    });
     socket.on("openAuction", async ({ productId, userId }) => {
       if (ProductPC[productId]) return;
 
@@ -169,6 +178,7 @@ const socketInit = (server, app) => {
           // 호가 시작 후 10초전까지는 모아둠
           if (count < AVOID_ASK_TIME / OP_TIME) return;
 
+          console.log(ProductJoinUsers[productId]);
           io.to(productId).emit("updateAuctionStatus", {
             status: findUserId(
               productId,
@@ -183,7 +193,7 @@ const socketInit = (server, app) => {
         productId
       );
 
-      AuctionList[productId].runAuction(opFunc);
+      AuctionList[productId].runAuction(opFunc, auctionTimer);
 
       (ProductJoinUsers[productId] ??= []).push({
         socketId: socket.id,
@@ -265,6 +275,7 @@ const socketInit = (server, app) => {
       if (AuctionList[productId] === undefined) return;
       AuctionList[productId].join(socket.id);
 
+      console.log(ProductJoinUsers[productId]);
       io.to(socket.id).emit("updateAuctionStatus", {
         status: findUserId(
           productId,
