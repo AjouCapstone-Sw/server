@@ -30,6 +30,10 @@ class AuctionHouse {
   compare() {
     return this.manage.queue[0].price === this.auction.price;
   }
+
+  getUserLength() {
+    return this.users.length;
+  }
 }
 
 class Manage {
@@ -53,7 +57,6 @@ class Manage {
 
   getRemainTime() {
     const time = new Date().getTime();
-
     return this.operateTime - (time - this.startTime);
   }
 
@@ -68,8 +71,8 @@ class Manage {
 
 class Auction {
   constructor({ price, perPrice }) {
-    this.price = price;
-    this.perPrice = perPrice;
+    this.price = Number(price);
+    this.perPrice = Number(perPrice);
   }
 
   add() {
