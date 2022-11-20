@@ -57,7 +57,6 @@ class Manage {
 
   getRemainTime() {
     const time = new Date().getTime();
-
     return this.operateTime - (time - this.startTime);
   }
 
