@@ -30,6 +30,10 @@ class AuctionHouse {
   compare() {
     return this.manage.queue[0].price === this.auction.price;
   }
+
+  getUserLength() {
+    return this.users.length;
+  }
 }
 
 class Manage {
