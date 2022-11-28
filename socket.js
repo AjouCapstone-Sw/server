@@ -2,11 +2,15 @@ const { Server } = require("socket.io");
 const wrtc = require("@koush/wrtc");
 const { makePC } = require("./MyWebRTC");
 const { Auction, AuctionHouse, Manage } = require("./auction/auction");
-const { getProductByauction } = require("./auction/util");
+const {
+  getProductByauction,
+  getIsDescriptionTime,
+  getIsAskAvoidTime,
+} = require("./auction/util");
 
 const OP_TIME = 5000;
 const DESCRIPTION_TIME = 10000;
-const AVOID_ASK_TIME = DESCRIPTION_TIME + 6000;
+const AVOID_ASK_TIME = DESCRIPTION_TIME + 10000;
 
 const SocketMap = {};
 // 상품 Seller의 PC
@@ -63,6 +67,11 @@ const socketInit = (server, app) => {
     socket.on("openAuction", async ({ productId, userId }) => {
       if (ProductPC[productId]) return;
 
+      (ProductJoinUsers[productId] ??= []).push({
+        socketId: socket.id,
+        userId,
+      });
+
       const onIceCandidateCallback = ({ candidate }) => {
         socket.to(socket.id).emit("getSenderCandidate", { candidate });
       };
@@ -91,6 +100,7 @@ const socketInit = (server, app) => {
         auction,
         manage,
       });
+
       socket.join(productId);
 
       io.to(productId).emit("updateAuctionStatus", {
@@ -98,12 +108,60 @@ const socketInit = (server, app) => {
         nextPrice: auction.price,
       });
 
-      const auctionTimer = setInterval(
-        () => io.to(productId).emit("auctionTimer", manage.getRemainTime()),
-        1000
+      io.to(productId).emit(
+        "callSeller",
+        findUserId(productId, AuctionList[productId].getSeller())
       );
+
+      let isLongAskTimer = true;
+      let shorAskTriggered = false;
+
+      const auctionTimer = setInterval(() => {
+        const isDescriptionTime = getIsDescriptionTime(
+          DESCRIPTION_TIME,
+          manage.operateTime,
+          manage.getRemainTime()
+        );
+
+        const isAskAvoidTime = getIsAskAvoidTime(
+          AVOID_ASK_TIME,
+          manage.operateTime,
+          manage.getRemainTime()
+        );
+
+        io.to(productId).emit("auctionTimer", manage.getRemainTime());
+        //설명 타이머
+        if (isDescriptionTime)
+          io.to(productId).emit(
+            "setDescriptionTime",
+            DESCRIPTION_TIME - (manage.operateTime - manage.getRemainTime())
+          );
+        // 긴 호가 타이머
+        else if (!isDescriptionTime && isLongAskTimer) {
+          for (let i = 0; i < 10; i++) {
+            setTimeout(() => {
+              io.to(productId).emit("updateAskTime", 10 - i);
+            }, i * 1000);
+          }
+          isLongAskTimer = false;
+        }
+        //호가 타이머
+        else if (!isAskAvoidTime && !isLongAskTimer && !shorAskTriggered) {
+          shorAskTriggered = true;
+          for (let i = 0; i < 5; i++) {
+            setTimeout(() => {
+              io.to(productId).emit("updateAskTime", 5 - i);
+              if (i === 4) {
+                shorAskTriggered = false;
+              }
+            }, i * 1000);
+          }
+        }
+      }, 1000);
+
       let count = 0;
       let isAuctionStart = false;
+
       const opFunc = setInterval(
         (productId) => {
           const auctionHouse = AuctionList[productId];
@@ -129,14 +187,16 @@ const socketInit = (server, app) => {
 
             const determinedBuyer = auctionHouse.conclusionUser?.buyer;
             const determinedPrice = auctionHouse.conclusionUser?.price;
+
             io.to(determinedBuyer).emit("endAuctionWithBuyer", {
               productId,
               price: determinedPrice,
               seller: findUserId(productId, AuctionList[productId].getSeller()),
             });
+
             const isNotDetermined = (id) =>
               ![this.seller, determinedBuyer].includes(id);
-            e;
+
             const socketList = auctionHouse.users;
             const remainMembers =
               Array.from(socketList).filter(isNotDetermined);
@@ -161,6 +221,7 @@ const socketInit = (server, app) => {
             auctionHouse.conclusion(auctionHouse.manage.queue[0]);
             auctionHouse.auction.add();
             auctionHouse.manage.getRemainTime();
+            io.to(productId).emit("updateAskTime", OP_TIME);
           }
           // 호가 없을 때, 경메 시작 후 10초 유예시간 줌
           else if (
@@ -173,7 +234,7 @@ const socketInit = (server, app) => {
             const seller = auctionHouse.getSeller();
             io.to(seller).emit("endAuctionWithSeller", productId);
 
-            const determinedBuyer = auctionHouse.conclusionUser.buyer;
+            const determinedBuyer = auctionHouse.conclusionUser?.buyer;
             const determinedPrice = auctionHouse.conclusionUser?.price;
 
             io.to(determinedBuyer).emit("endAuctionWithBuyer", {
@@ -202,7 +263,7 @@ const socketInit = (server, app) => {
             // delete AuctionList[productId];
             return;
           }
-          // 호가 시작 후 10초전까지는 모아둠
+
           if (count < AVOID_ASK_TIME / OP_TIME) return;
 
           io.to(productId).emit("updateAuctionStatus", {
@@ -220,11 +281,6 @@ const socketInit = (server, app) => {
       );
 
       AuctionList[productId].runAuction(opFunc, auctionTimer);
-
-      (ProductJoinUsers[productId] ??= []).push({
-        socketId: socket.id,
-        userId,
-      });
 
       socket.join(productId);
       io.to(productId).emit("joinUser", {
@@ -288,32 +344,37 @@ const socketInit = (server, app) => {
 
       const stream = ProductStream[productId].stream;
       const tracks = ProductStream[productId].tracks;
-      console.log(stream.getTracks(), tracks);
+
       tracks.forEach((track) => pc.addTrack(track, stream));
 
       ProductUsersPC[socket.id] = pc;
-      ProductJoinUsers[productId] ??
-        (ProductJoinUsers[productId] = []).push({
-          socketId: socket.id,
-          userId,
-        });
+
+      (ProductJoinUsers[productId] ??= []).push({
+        socketId: socket.id,
+        userId,
+      });
 
       if (AuctionList[productId] === undefined) return;
       AuctionList[productId].join(socket.id);
 
-      console.log(ProductJoinUsers[productId]);
-      io.to(productId).emit("updateAuctionStatus", {
-        status: findUserId(
-          productId,
-          AuctionList[productId].conclusionUser?.buyer ?? ""
-        ),
-        nextPrice: auction.price,
-      });
       socket.join(productId);
       io.to(productId).emit("joinUser", {
         userId,
         updatedUserLength: AuctionList[productId].getUserLength(),
       });
+
+      io.to(productId).emit("updateAuctionStatus", {
+        status: findUserId(
+          productId,
+          AuctionList[productId].conclusionUser?.buyer ?? ""
+        ),
+        nextPrice: AuctionList[productId].auction.price,
+      });
+
+      io.to(socket.id).emit(
+        "callSeller",
+        findUserId(productId, AuctionList[productId].getSeller())
+      );
     });
 
     socket.on("receiverCandidate", ({ candidate, productId }) => {
@@ -363,8 +424,7 @@ const socketInit = (server, app) => {
     //       closeReceiverPC(socket.id);
     //       closeSenderPCs(socket.id);
     //       app.get("io").to(roomId).emit("userExit", socket.id);
-    //     } catch (error) {
-    //       console.log(error);
+    //     } catch (error) {    //       console.log(error);
     //     }
     //   });
   });

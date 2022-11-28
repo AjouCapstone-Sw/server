@@ -25,4 +25,14 @@ const getProductByauction = async (productId) => {
   };
 };
 
-module.exports = { getProductByauction };
+const getIsDescriptionTime = (descriptionTime, operateTime, remainTime) =>
+  descriptionTime >= operateTime - remainTime;
+
+const getIsAskAvoidTime = (avoidAskTime, operateTime, remainTime) =>
+  avoidAskTime >= operateTime - remainTime;
+
+module.exports = {
+  getProductByauction,
+  getIsDescriptionTime,
+  getIsAskAvoidTime,
+};

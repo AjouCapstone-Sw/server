@@ -69,6 +69,9 @@ class Manage {
   initQueue() {
     this.queue = [];
   }
+  getOperateTime() {
+    return this.operateTime;
+  }
 }
 
 class Auction {
