@@ -34,6 +34,10 @@ jobs:
 
       - name: npm install (CI)
         run: npm ci
+      
+      - name: Make env file
+        run: echo "PRODUCTION=Y" >> .env
+        shell: bash
 
       - name: Make zip file
         run: zip -qq -r ./socket-deploy.zip .
