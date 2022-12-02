@@ -8,7 +8,7 @@ const getProductByauction = async (productId) => {
       instant,
       productImages,
       seller,
-      bidPrice,
+      bidPricea,
       startPrice,
       startTime,
       duration,
@@ -17,7 +17,7 @@ const getProductByauction = async (productId) => {
       like,
       live,
     },
-  } = await axiosInstance.get(`/product/${productId}`);
+  } = await axiosInstance.post(`/product`, { productId, userId: 1 });
   return {
     price: Number(startPrice),
     operateTime: Number(duration) * 60 * 1000,
