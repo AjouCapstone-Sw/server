@@ -1,0 +1,67 @@
+name: socket-server CI/CD
+
+on:
+  push:
+    branches: [ main ]
+#   pull_request:
+#     branches: [ main ]
+
+env:
+  S3_BUCKET_NAME: s3-20221018
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    
+    strategy:
+      matrix:
+        node-version: [16.14.2]
+    
+    steps:
+      - name: Checkout Github-Action
+        uses: actions/checkout@v2
+
+      - name: Set up node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: npm install (CI)
+        run: npm ci
+      
+      - name: Make env file
+        run: echo "PRODUCTION=Y" >> .env
+        shell: bash
+
+      - name: Make zip file
+        run: zip -qq -r ./socket-deploy.zip .
+        shell: bash
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
+
+      - name: Upload to S3
+        run: aws s3 cp --region ap-northeast-2 ./socket-deploy.zip s3://$S3_BUCKET_NAME/
+
+      # Deploy  
+      - name: Deploy
+        env:
+          S3_BUCKET_NAME: s3-20221018
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+        run: |
+          aws deploy create-deployment \
+          --application-name CodeDeploy-app \
+          --deployment-group-name deploy-socket-pipe \
+          --file-exists-behavior OVERWRITE \
+          --s3-location bucket=s3-20221018,bundleType=zip,key=socket-deploy.zip \
+          --region ap-northeast-2

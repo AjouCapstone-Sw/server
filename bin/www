@@ -3,13 +3,20 @@
 /**
  * Module dependencies.
  */
-
 var app = require("../app");
 var debug = require("debug")("express-webrtc:server");
 // var http = require("http");
 const https = require("https");
 const fs = require("fs");
-const options = {
+const path = require('path');
+const dir = '/etc/letsencrypt/live/theajou.shop/';
+require('dotenv').config();
+
+const options = process.env.PRODUCTION === 'Y' ? {
+  ca: fs.readFileSync(path.resolve(dir, 'fullchain.pem')),
+  key: fs.readFileSync(path.resolve(dir, 'privkey.pem')),
+  cert: fs.readFileSync(path.resolve(dir, 'cert.pem'))
+} : {
   key: fs.readFileSync("./localhost-key.pem"),
   cert: fs.readFileSync("./localhost.pem"),
 };
