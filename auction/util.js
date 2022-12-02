@@ -3,15 +3,15 @@ const { axiosInstance } = require("../axios/axiosInstance");
 const getProductByauction = async (productId) => {
   const {
     data: {
+      bidPrice,
+      startPrice,
+      duration,
+      startTime,
       description,
       endTime,
       instant,
       productImages,
       seller,
-      bidPricea,
-      startPrice,
-      startTime,
-      duration,
       title,
       buyNowPrice,
       like,
