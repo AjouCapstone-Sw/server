@@ -9,7 +9,7 @@ const {
 } = require("./auction/util");
 
 const OP_TIME = 5000;
-const DESCRIPTION_TIME = 10000;
+const DESCRIPTION_TIME = 60000;
 const AVOID_ASK_TIME = DESCRIPTION_TIME + 10000;
 
 const SocketMap = {};
