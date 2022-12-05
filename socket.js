@@ -25,19 +25,24 @@ const ProductJoinUsers = {};
 const ProductUsersPC = {};
 
 const closeAuction = (productId) => {
-  const sellerId = ProductStream[productId].id;
-  ProductPC[productId] = null;
-  ProductJoinUsers[productId].forEach(
-    ({ socketId }) => (ProductUsersPC[socketId] = null)
-  );
-  ProductJoinUsers[productId] = null;
-  ProductStream[sellerId] = null;
-  ProductUsersPC[sellerId] = null;
-  const auctionHouse = AuctionList[productId];
-  clearInterval(auctionHouse.op);
-  clearInterval(auctionHouse.timer);
-  AuctionList[productId] = null;
+  try {
+    const sellerId = ProductStream[productId].id;
+    ProductPC[productId] = null;
+    ProductJoinUsers[productId].forEach(
+      ({ socketId }) => (ProductUsersPC[socketId] = null)
+    );
+    ProductJoinUsers[productId] = null;
+    ProductStream[sellerId] = null;
+    ProductUsersPC[sellerId] = null;
+    const auctionHouse = AuctionList[productId];
+    clearInterval(auctionHouse.op);
+    clearInterval(auctionHouse.timer);
+    AuctionList[productId] = null;
+  } catch (e) {
+    console.log("error 발생 : ", e);
+  }
 };
+
 const findUserId = (productId, sockId) =>
   ProductJoinUsers[productId].filter(({ socketId }) => sockId === socketId)[0]
     ?.userId ?? "";
@@ -68,6 +73,7 @@ const socketInit = (server, app) => {
 
     //  여기부터 rtc
     socket.on("close", ({ productId }) => {
+      console.log("??");
       closeAuction(productId);
     });
 
@@ -123,7 +129,13 @@ const socketInit = (server, app) => {
         "callSeller",
         findUserId(productId, AuctionList[productId].getSeller())
       );
-      const auctionTimer = makeAuctionTimer(manage, io, productId);
+
+      const auctionTimer = makeAuctionTimer(
+        manage,
+        io,
+        productId,
+        AuctionList[productId]
+      );
 
       let count = 0;
       let isAuctionStart = false;
@@ -148,7 +160,7 @@ const socketInit = (server, app) => {
               io,
               productId,
               findUserId(productId, AuctionList[productId].getSeller()),
-              true
+              closeAuction
             );
             return;
             //호가 들어왔을 때
@@ -172,7 +184,7 @@ const socketInit = (server, app) => {
               io,
               productId,
               findUserId(productId, AuctionList[productId].getSeller()),
-              false
+              closeAuction
             );
             return;
           }

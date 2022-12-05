@@ -1,11 +1,15 @@
-const auctionExit = (auctionHouse, io, productId, seller, flag) => {
-  const seller1 = auctionHouse.getSeller();
+const auctionExit = (auctionHouse, io, productId, seller, closeAuction) => {
+  const sellerSocketId = auctionHouse.getSeller();
   const price = auctionHouse.conclusionUser?.price ?? 0;
-  if (flag) io.to(seller1).emit("endAuctionWithSeller", { price });
-  else io.to(seller1).emit("endAuctionWithSeller", productId);
 
   const determinedBuyer = auctionHouse.conclusionUser?.buyer;
   const determinedPrice = auctionHouse.conclusionUser?.price;
+
+  if (!determinedBuyer) {
+    io.to(sellerSocketId).emit("endAuctionWithSeller", { price });
+  } else {
+    io.to(sellerSocketId).emit("endAuctionWithSeller", productId);
+  }
 
   io.to(determinedBuyer).emit("endAuctionWithBuyer", {
     productId,
