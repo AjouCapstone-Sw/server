@@ -5,12 +5,7 @@ const auctionExit = (auctionHouse, io, productId, seller, closeAuction) => {
   const determinedBuyer = auctionHouse.conclusionUser?.buyer;
   const determinedPrice = auctionHouse.conclusionUser?.price;
 
-  if (!determinedBuyer) {
-    io.to(sellerSocketId).emit("endAuctionWithSeller", { price });
-  } else {
-    io.to(sellerSocketId).emit("endAuctionWithSeller", productId);
-  }
-
+  io.to(sellerSocketId).emit("endAuctionWithSeller", { price, productId });
   io.to(determinedBuyer).emit("endAuctionWithBuyer", {
     productId,
     price: determinedPrice,
