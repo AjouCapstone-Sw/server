@@ -77,7 +77,7 @@ const socketInit = (server, app) => {
       });
 
       const onIceCandidateCallback = ({ candidate }) => {
-        socket.to(socket.id).emit("getSenderCandidate", { candidate });
+        io.to(socket.id).emit("getSenderCandidate", { candidate });
       };
 
       const onTrackCallback = (e) => {
@@ -330,7 +330,6 @@ const socketInit = (server, app) => {
     socket.on("senderCandidate", ({ candidate }) => {
       const pc = ProductUsersPC[socket.id];
       if (!candidate) return;
-      console.log("senderCandidate");
       pc.addIceCandidate(new wrtc.RTCIceCandidate(candidate));
     });
 
@@ -385,7 +384,7 @@ const socketInit = (server, app) => {
     });
 
     socket.on("receiverCandidate", ({ candidate, productId }) => {
-      const pc = ProductPC[productId];
+      const pc = ProductUsersPC[socket.id];
       if (!candidate) return;
       pc.addIceCandidate(new wrtc.RTCIceCandidate(candidate));
     });
