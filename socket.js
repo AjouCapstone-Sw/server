@@ -26,9 +26,10 @@ const ProductUsersPC = {};
 
 const closeAuction = (productId) => {
   try {
+    if (!AuctionList[productId]) return;
     const sellerId = ProductStream[productId].id;
     ProductPC[productId] = null;
-    ProductJoinUsers[productId].forEach(
+    ProductJoinUsers[productId]?.forEach(
       ({ socketId }) => (ProductUsersPC[socketId] = null)
     );
     ProductJoinUsers[productId] = null;
@@ -73,8 +74,7 @@ const socketInit = (server, app) => {
 
     //  여기부터 rtc
     socket.on("close", ({ productId }) => {
-      console.log("??");
-      closeAuction(productId);
+      if (ProductStream[productId].id === socket.id) closeAuction(productId);
     });
 
     const createPC = (productId) => {
