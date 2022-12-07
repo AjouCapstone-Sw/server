@@ -279,6 +279,10 @@ const socketInit = (server, app) => {
     });
 
     socket.on("joinAuction", ({ productId, userId }) => {
+      if (!ProductStream[productId]) {
+        io.to(socket.id).emit("dontOpenAuction");
+        return;
+      }
       SocketMap[socket.id] = {
         id: userId,
         productId,
@@ -331,10 +335,9 @@ const socketInit = (server, app) => {
         findUserId(productId, AuctionList[productId].getSeller())
       );
     });
-
     socket.on("receiverCandidate", ({ candidate, productId }) => {
       const pc = ProductUsersPC[socket.id];
-      if (!candidate) return;
+      if (!candidate || !pc) return;
       pc.addIceCandidate(new wrtc.RTCIceCandidate(candidate));
     });
 
@@ -342,6 +345,7 @@ const socketInit = (server, app) => {
       // socketToRoom[socket.id] = data.productId;
 
       const pc = ProductUsersPC[socket.id];
+      if (!pc) return;
       pc.setRemoteDescription(sdp);
 
       const answerSdp = await pc.createAnswer({
