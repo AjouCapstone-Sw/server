@@ -23,22 +23,25 @@ const ProductStream = {};
 const ProductJoinUsers = {};
 // 상품에 참여하는 모든 유저들의 pc 정보
 const ProductUsersPC = {};
+// user <=> productId
+const UserMappingProductId = {};
 
 const closeAuction = (productId) => {
   try {
     if (!AuctionList[productId]) return;
+    const auctionHouse = AuctionList[productId];
+    clearInterval(auctionHouse.op);
+    clearInterval(auctionHouse.timer);
+
     const sellerId = ProductStream[productId].id;
     ProductPC[productId] = null;
     ProductJoinUsers[productId]?.forEach(
       ({ socketId }) => (ProductUsersPC[socketId] = null)
     );
     ProductJoinUsers[productId] = null;
-    ProductStream[sellerId] = null;
-    ProductUsersPC[sellerId] = null;
-    const auctionHouse = AuctionList[productId];
-    clearInterval(auctionHouse.op);
-    clearInterval(auctionHouse.timer);
+    ProductStream[productId] = null;
     AuctionList[productId] = null;
+    ProductUsersPC[sellerId] = null;
   } catch (e) {
     console.log("error 발생 : ", e);
   }
@@ -67,13 +70,14 @@ const socketInit = (server, app) => {
 
     //여기 부터 chating
 
-    socket.on("setUid", (Id) => {
-      SocketMap[Id] = socket.id;
+    socket.on("setUid", (id) => {
+      SocketMap[socket.id] = { id };
       console.log(SocketMap);
     });
 
     //  여기부터 rtc
     socket.on("close", ({ productId }) => {
+      if (!ProductStream[productId]?.id) return;
       if (ProductStream[productId].id === socket.id) closeAuction(productId);
     });
 
@@ -96,9 +100,25 @@ const socketInit = (server, app) => {
       ProductUsersPC[socket.id] = pc;
     };
 
+    socket.on("forceExit", ({ userId }) => {
+      const productId = SocketMap[socket.id].productId;
+      if (ProductStream[productId].id !== socket.id) return;
+      const auctionHouse = AuctionList[productId];
+      const socketList = auctionHouse.users;
+      const determinedBuyer = auctionHouse.conclusionUser?.buyer;
+      const isNotDetermined = (id) =>
+        ![this.seller, determinedBuyer].includes(id);
+      const remainMembers = Array.from(socketList).filter(isNotDetermined);
+      remainMembers.map((member) => io.to(member).emit("forceAuctionExit"));
+      closeAuction(productId);
+    });
+
     socket.on("openAuction", async ({ productId, userId }) => {
       if (ProductPC[productId]) return;
-
+      SocketMap[socket.id] = {
+        id: userId,
+        productId,
+      };
       (ProductJoinUsers[productId] ??= []).push({
         socketId: socket.id,
         userId,
@@ -259,6 +279,10 @@ const socketInit = (server, app) => {
     });
 
     socket.on("joinAuction", ({ productId, userId }) => {
+      SocketMap[socket.id] = {
+        id: userId,
+        productId,
+      };
       const onIceCandidateCallback = ({ candidate }) => {
         io.to(socket.id).emit("getReceiverCandidate", { candidate });
       };
@@ -360,7 +384,5 @@ const socketInit = (server, app) => {
     //   });
   });
 };
-
-exports.SocketMap = SocketMap;
 
 exports.socketInit = socketInit;
