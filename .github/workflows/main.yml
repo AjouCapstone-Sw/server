@@ -35,6 +35,9 @@ jobs:
       - name: npm install (CI)
         run: npm install
       
+      - name: pm2 install
+        run: npm install pm2
+      
       - name: Make env file
         run: echo "PRODUCTION=Y" >> .env
         shell: bash
