@@ -5,21 +5,25 @@
  */
 var app = require("../app");
 var debug = require("debug")("express-webrtc:server");
-// var http = require("http");
+const http = require("http");
 const https = require("https");
+const serverProtocol = process.env.PRODUCTION === "Y" ? http : https;
 const fs = require("fs");
-const path = require('path');
-const dir = '/etc/letsencrypt/live/theajou.shop/';
-require('dotenv').config();
+const path = require("path");
+const dir = "/etc/letsencrypt/live/theajou.shop/";
+require("dotenv").config();
 
-const options = process.env.PRODUCTION === 'Y' ? {
-  ca: fs.readFileSync(path.resolve(dir, 'fullchain.pem')),
-  key: fs.readFileSync(path.resolve(dir, 'privkey.pem')),
-  cert: fs.readFileSync(path.resolve(dir, 'cert.pem'))
-} : {
-  key: fs.readFileSync("./localhost-key.pem"),
-  cert: fs.readFileSync("./localhost.pem"),
-};
+const options =
+  process.env.PRODUCTION === "Y"
+    ? {
+        ca: fs.readFileSync(path.resolve(dir, "fullchain.pem")),
+        key: fs.readFileSync(path.resolve(dir, "privkey.pem")),
+        cert: fs.readFileSync(path.resolve(dir, "cert.pem")),
+      }
+    : {
+        key: fs.readFileSync("./localhost-key.pem"),
+        cert: fs.readFileSync("./localhost.pem"),
+      };
 
 const { socketInit } = require("../socket");
 
@@ -34,7 +38,8 @@ app.set("port", port);
  * Create HTTP server.
  */
 
-var server = https.createServer(options, app);
+var server = serverProtocol.createServer(options, app);
+// var server = https.createServer(options, app);
 
 /**
  * Listen on provided port, on all network interfaces.
