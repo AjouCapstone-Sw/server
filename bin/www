@@ -5,13 +5,14 @@
  */
 var app = require("../app");
 var debug = require("debug")("express-webrtc:server");
+require("dotenv").config();
 const http = require("http");
 const https = require("https");
 const serverProtocol = process.env.PRODUCTION === "Y" ? http : https;
 const fs = require("fs");
 const path = require("path");
 const dir = "/etc/letsencrypt/live/theajou.shop/";
-require("dotenv").config();
+
 
 const options =
   process.env.PRODUCTION === "Y"
