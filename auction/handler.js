@@ -25,4 +25,14 @@ const auctionExit = (auctionHouse, io, productId, seller, closeAuction) => {
   closeAuction(productId);
 };
 
+const otherAuctionJoinCheck = (AuctionList, userSocketId) => {
+  const [productId] = Object.entries(AuctionList).reduce((acc, cur) => {
+    const [key, value] = cur;
+    if (value.conclusionUser?.buyer === userSocketId) acc.push(key);
+    return acc;
+  }, []);
+  return productId;
+};
+
 exports.auctionExit = auctionExit;
+exports.otherAuctionJoinCheck = otherAuctionJoinCheck;

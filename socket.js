@@ -8,7 +8,7 @@ const {
   getIsAskAvoidTime,
 } = require("./auction/util");
 const { makeAuctionTimer } = require("./Timer/AuctionTimer");
-const { auctionExit } = require("./auction/handler");
+const { auctionExit, otherAuctionJoinCheck } = require("./auction/handler");
 
 const OP_TIME = 5000;
 const DESCRIPTION_TIME = 60000;
@@ -283,6 +283,17 @@ const socketInit = (server, app) => {
         io.to(socket.id).emit("dontOpenAuction");
         return;
       }
+
+      const otherAuctionProductId = otherAuctionJoinCheck(
+        AuctionList,
+        socket.id
+      );
+
+      if (otherAuctionProductId) {
+        io.to(socket.id).emit("goUserAuction", { otherAuctionProductId });
+        return;
+      }
+
       SocketMap[socket.id] = {
         id: userId,
         productId,
