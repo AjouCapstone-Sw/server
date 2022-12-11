@@ -1,4 +1,13 @@
-const auctionExit = (auctionHouse, io, productId, seller, closeAuction) => {
+const { auctionFail, getUserIdByNickname, auctionPurchase } = require("./util");
+
+const auctionExit = async (
+  auctionHouse,
+  io,
+  productId,
+  seller,
+  closeAuction,
+  socketMap
+) => {
   const sellerSocketId = auctionHouse.getSeller();
   const price = auctionHouse.conclusionUser?.price ?? 0;
 
@@ -12,8 +21,15 @@ const auctionExit = (auctionHouse, io, productId, seller, closeAuction) => {
     seller,
   });
 
-  const isNotDetermined = (id) => ![this.seller, determinedBuyer].includes(id);
+  if (!determinedBuyer) {
+    auctionFail(productId);
+  } else {
+    const buyerNickname = socketMap[determinedBuyer].id;
+    const buyerId = await getUserIdByNickname(buyerNickname);
+    auctionPurchase(productId, determinedPrice, buyerId);
+  }
 
+  const isNotDetermined = (id) => ![this.seller, determinedBuyer].includes(id);
   const socketList = auctionHouse.users;
   const remainMembers = Array.from(socketList).filter(isNotDetermined);
   remainMembers.map((member) =>

@@ -6,6 +6,7 @@ const {
   getProductByauction,
   getIsDescriptionTime,
   getIsAskAvoidTime,
+  sellerIn,
 } = require("./auction/util");
 const { makeAuctionTimer } = require("./Timer/AuctionTimer");
 const { auctionExit, otherAuctionJoinCheck } = require("./auction/handler");
@@ -139,6 +140,7 @@ const socketInit = (server, app) => {
       });
 
       socket.join(productId);
+      sellerIn(productId);
 
       io.to(productId).emit("updateAuctionStatus", {
         status: "",
@@ -180,7 +182,8 @@ const socketInit = (server, app) => {
               io,
               productId,
               findUserId(productId, AuctionList[productId].getSeller()),
-              closeAuction
+              closeAuction,
+              SocketMap
             );
             return;
             //호가 들어왔을 때
@@ -204,7 +207,8 @@ const socketInit = (server, app) => {
               io,
               productId,
               findUserId(productId, AuctionList[productId].getSeller()),
-              closeAuction
+              closeAuction,
+              SocketMap
             );
             return;
           }
